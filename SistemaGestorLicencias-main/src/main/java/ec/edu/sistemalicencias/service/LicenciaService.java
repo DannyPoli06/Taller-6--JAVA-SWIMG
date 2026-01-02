@@ -147,10 +147,26 @@ public class LicenciaService {
      * @return Licencia emitida
      * @throws LicenciaException Si no se cumplen los requisitos
      */
-    public Licencia emitirLicencia(Long conductorId, String tipoLicencia, Long pruebaPsicometricaId)
+    public Licencia emitirLicencia(Long conductorId,
+                                   String tipoLicencia,
+                                   Long pruebaPsicometricaId)
             throws LicenciaException {
+
         try {
-            // 1. Verificar que el conductor existe y está validado
+
+            if (conductorId == null) {
+                throw new LicenciaException("Conductor inválido");
+            }
+
+            if (tipoLicencia == null || tipoLicencia.isEmpty()) {
+                throw new LicenciaException("Tipo de licencia inválido");
+            }
+
+            if (pruebaPsicometricaId == null) {
+                throw new LicenciaException("Debe existir una prueba psicométrica aprobada");
+            }
+
+
             Conductor conductor = conductorDAO.buscarPorId(conductorId);
             if (conductor == null) {
                 throw new DocumentoInvalidoException("Conductor no encontrado");
@@ -162,47 +178,51 @@ public class LicenciaService {
                 );
             }
 
-            // 2. Verificar edad mínima
+
             if (conductor.calcularEdad() < 18) {
                 throw new DocumentoInvalidoException(
                         "No se puede emitir licencia: el conductor debe ser mayor de 18 años"
                 );
             }
 
-            // 3. Verificar prueba psicométrica si se proporcionó
-            if (pruebaPsicometricaId != null) {
-                PruebaPsicometrica prueba = pruebaPsicometricaDAO.buscarPorId(pruebaPsicometricaId);
-                if (prueba == null) {
-                    throw new DocumentoInvalidoException("Prueba psicométrica no encontrada");
-                }
 
-                if (!prueba.estaAprobado()) {
-                    throw new DocumentoInvalidoException(
-                            "No se puede emitir licencia: prueba psicométrica no aprobada (Promedio: " +
-                                    String.format("%.2f", prueba.calcularPromedio()) + ")"
-                    );
-                }
+            PruebaPsicometrica prueba = pruebaPsicometricaDAO.buscarPorId(pruebaPsicometricaId);
+            if (prueba == null) {
+                throw new DocumentoInvalidoException("Prueba psicométrica no encontrada");
             }
 
-            // 4. Verificar que no tenga licencias vigentes del mismo tipo
+            if (!prueba.estaAprobado()) {
+                throw new DocumentoInvalidoException(
+                        "No se puede emitir licencia: prueba psicométrica no aprobada (Promedio: " +
+                                String.format("%.2f", prueba.calcularPromedio()) + ")"
+                );
+            }
+
+
             List<Licencia> licenciasExistentes = licenciaDAO.buscarPorConductor(conductorId);
             for (Licencia lic : licenciasExistentes) {
                 if (tipoLicencia.equals(lic.getTipoLicencia()) && lic.estaVigente()) {
                     throw new DocumentoInvalidoException(
-                            "El conductor ya tiene una licencia vigente de tipo " + TipoLicenciaConstantes.obtenerNombre(tipoLicencia)
+                            "El conductor ya tiene una licencia vigente de tipo "
+                                    + TipoLicenciaConstantes.obtenerNombre(tipoLicencia)
                     );
                 }
             }
 
-            // 5. Crear y guardar la licencia
-            Licencia nuevaLicencia = new Licencia(conductorId, tipoLicencia);
+
+            Licencia nuevaLicencia = new Licencia();
+            nuevaLicencia.setConductorId(conductorId);
+            nuevaLicencia.setTipoLicencia(tipoLicencia);
             nuevaLicencia.setPruebaPsicometricaId(pruebaPsicometricaId);
+            nuevaLicencia.setFechaEmision(LocalDate.now());
+            nuevaLicencia.setFechaVencimiento(LocalDate.now().plusYears(5));
+            nuevaLicencia.setActiva(true);
             nuevaLicencia.generarNumeroLicencia(conductor.getCedula());
 
-            // Validar licencia
+
             nuevaLicencia.validar();
 
-            // Guardar en base de datos
+
             Long licenciaId = licenciaDAO.guardar(nuevaLicencia);
             nuevaLicencia.setId(licenciaId);
 
@@ -214,6 +234,7 @@ public class LicenciaService {
             throw new LicenciaException("Error al emitir licencia", e);
         }
     }
+
 
     /**
      * Busca un conductor por cédula

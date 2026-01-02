@@ -51,9 +51,12 @@ public class EmitirLicenciaView extends JFrame {
     }
 
     private void inicializarDatos() {
-        // Cargar tipos de licencia en el combo
-        cmbTipoLicencia.setModel(new DefaultComboBoxModel<>(TipoLicenciaConstantes.NOMBRES_TIPOS_LICENCIA));
+        cmbTipoLicencia.setModel(
+                new DefaultComboBoxModel<>(TipoLicenciaConstantes.NOMBRES_TIPOS_LICENCIA)
+        );
+        cmbTipoLicencia.setSelectedIndex(0);
     }
+
 
     private void configurarEventos() {
         btnBuscar.addActionListener(e -> buscarConductor());
